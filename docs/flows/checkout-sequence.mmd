@@ -1,0 +1,29 @@
+sequenceDiagram
+  autonumber
+  actor Buyer
+  participant FE as Next.js
+  participant API as FastAPI
+  participant DB as Postgres
+  participant Pay as Payment Provider
+  participant W as Worker/Queue
+
+  Buyer->>FE: Add items to cart
+  FE->>API: POST /cart/lines
+  API->>DB: Upsert cart + lines
+  DB-->>API: OK
+  API-->>FE: Cart updated
+
+  Buyer->>FE: Checkout
+  FE->>API: POST /orders (from cart)
+  API->>DB: Validate stock + reserve qty
+  API->>DB: Create order + order_lines (snapshot)
+  DB-->>API: Order created
+  API-->>FE: Order id + payment intent
+
+  FE->>Pay: Confirm payment
+  Pay-->>API: Webhook payment_succeeded
+  API->>DB: Mark payment PAID + order PAID
+  API->>W: Enqueue fulfillment tasks
+  W->>DB: Decrement on_hand / finalize reservation
+  W-->>API: Done
+  API-->>FE: Order status updated
