@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps import get_current_user_id, get_db
 from db.models.cart import Cart, CartItem, CartStore
-from db.models.checkout import CheckoutDraft, OrderApproval, UserAddress
+from db.models.checkout import CheckoutApproval, CheckoutDraft, UserAddress
 from db.models.inventory import Lot
 from db.models.penalties import UserPenalty
 from db.models.rating import UserRatingMetrics
@@ -519,7 +519,7 @@ async def submit_checkout(
     draft.updated_at = datetime.now(timezone.utc)
 
     if approval_required:
-        approval = OrderApproval(
+        approval = CheckoutApproval(
             checkout_draft_id=draft.id,
             user_id=user_id,
             store_id=store.id,

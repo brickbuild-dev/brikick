@@ -122,8 +122,8 @@ class CheckoutDraft(Base):
     )
 
 
-class OrderApproval(Base):
-    __tablename__ = "order_approvals"
+class CheckoutApproval(Base):
+    __tablename__ = "checkout_approvals"
 
     id: Mapped[int] = mapped_column(sa.BigInteger, primary_key=True)
     checkout_draft_id: Mapped[int] = mapped_column(
