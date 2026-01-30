@@ -8,6 +8,7 @@ from db.models.catalog import (
     PriceGuide,
     PriceOverrideRequest,
 )
+from db.models.inventory import Lot
 from db.models.stores import (
     Store,
     StoreApiAccess,
@@ -33,6 +34,7 @@ __all__ = [
     "Category",
     "Color",
     "ItemType",
+    "Lot",
     "Permission",
     "PriceGuide",
     "PriceOverrideRequest",
