@@ -139,9 +139,7 @@ def upgrade() -> None:
         ),
         sa.ForeignKeyConstraint(["catalog_item_id"], ["catalog_items.id"]),
         sa.ForeignKeyConstraint(["color_id"], ["colors.id"]),
-        sa.ForeignKeyConstraint(["lot_id"], ["lots.id"]),
         sa.ForeignKeyConstraint(["reviewed_by"], ["users.id"]),
-        sa.ForeignKeyConstraint(["store_id"], ["stores.id"]),
     )
 
 

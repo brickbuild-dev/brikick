@@ -8,6 +8,14 @@ from db.models.catalog import (
     PriceGuide,
     PriceOverrideRequest,
 )
+from db.models.stores import (
+    Store,
+    StoreApiAccess,
+    StorePaymentMethod,
+    StorePolicy,
+    StoreShippingMethod,
+    StoreSyncConfig,
+)
 from db.models.users import (
     AuditLog,
     Permission,
@@ -29,6 +37,12 @@ __all__ = [
     "PriceGuide",
     "PriceOverrideRequest",
     "Role",
+    "Store",
+    "StoreApiAccess",
+    "StorePaymentMethod",
+    "StorePolicy",
+    "StoreShippingMethod",
+    "StoreSyncConfig",
     "User",
     "UserRole",
     "UserSession",
