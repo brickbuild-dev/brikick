@@ -1,0 +1,48 @@
+flowchart TB
+  subgraph Client
+    browser[Browser]
+  end
+
+  subgraph Frontend["Frontend (Next.js)"]
+    next[Next.js App Router]
+  end
+
+  subgraph Backend["Backend (FastAPI)"]
+    api[API Gateway / FastAPI App]
+    auth[Auth/RBAC Module]
+    catalog[Catalog Service]
+    listings[Listings Service]
+    orders[Orders/Checkout Service]
+    messaging[Messaging/Tickets Service]
+    pricing[Pricing/FX/Tax Service]
+  end
+
+  subgraph Data["Data Layer"]
+    pg[(Postgres)]
+    redis[(Redis)]
+    obj[(S3-compatible Storage)]
+  end
+
+  subgraph Async["Async Jobs"]
+    q[Queue]
+    worker[Workers]
+  end
+
+  browser --> next
+  next -->|HTTPS| api
+
+  api --> auth
+  api --> catalog
+  api --> listings
+  api --> orders
+  api --> messaging
+  api --> pricing
+
+  api --> pg
+  api --> redis
+  api --> obj
+
+  api --> q
+  worker --> q
+  worker --> pg
+  worker --> obj
