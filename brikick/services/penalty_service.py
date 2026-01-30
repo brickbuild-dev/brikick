@@ -58,6 +58,14 @@ async def count_active_issues(
     return int(result.scalar() or 0)
 
 
+async def get_active_issues(
+    db: AsyncSession,
+    user_id: int,
+    months: int,
+) -> int:
+    return await count_active_issues(db, user_id, months)
+
+
 async def get_current_penalty(
     db: AsyncSession,
     user_id: int,
