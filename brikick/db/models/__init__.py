@@ -17,6 +17,11 @@ from db.models.rating import (
     UserBadge,
     UserRatingMetrics,
 )
+from db.models.penalties import (
+    UserIssue,
+    UserPenalty,
+    UserPenaltyConfig,
+)
 from db.models.stores import (
     Store,
     StoreApiAccess,
@@ -49,6 +54,9 @@ __all__ = [
     "SlaMetrics",
     "UserBadge",
     "UserRatingMetrics",
+    "UserIssue",
+    "UserPenalty",
+    "UserPenaltyConfig",
     "Permission",
     "PriceGuide",
     "PriceOverrideRequest",
