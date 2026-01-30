@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,27 +9,23 @@ class LotFactory:
     @staticmethod
     async def create(
         db: AsyncSession,
-        *,
         store_id: int,
         catalog_item_id: int,
-        color_id: int | None = None,
-        quantity: int = 5,
-        unit_price: Decimal | None = None,
-        status: str = "AVAILABLE",
+        unit_price: Decimal = Decimal("0.50"),
+        quantity: int = 10,
+        **kwargs,
     ) -> Lot:
         lot = Lot(
             store_id=store_id,
             catalog_item_id=catalog_item_id,
-            color_id=color_id,
-            condition="N",
-            completeness="C",
+            color_id=kwargs.get("color_id", 0),
+            condition=kwargs.get("condition", "N"),
             quantity=quantity,
-            bulk_quantity=1,
-            unit_price=unit_price or Decimal("2.5000"),
-            sale_percentage=0,
-            status=status,
-            price_override_approved=False,
+            unit_price=unit_price,
+            status="AVAILABLE",
+            **kwargs,
         )
         db.add(lot)
-        await db.flush()
+        await db.commit()
+        await db.refresh(lot)
         return lot

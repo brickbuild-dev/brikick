@@ -1,6 +1,6 @@
 import pytest
 
-from tests.factories.catalog_factory import CatalogFactory
+from tests.factories.catalog_factory import CatalogItemFactory
 from tests.factories.lot_factory import LotFactory
 
 
@@ -15,13 +15,11 @@ async def test_get_cart_empty(authenticated_client):
 
 @pytest.mark.asyncio
 async def test_add_to_cart(authenticated_client, db_session, test_seller):
-    catalog_item = await CatalogFactory.create_catalog_item(db_session)
-    color = await CatalogFactory.create_color(db_session)
+    catalog_item = await CatalogItemFactory.create(db_session)
     lot = await LotFactory.create(
         db_session,
         store_id=test_seller.store.id,
         catalog_item_id=catalog_item.id,
-        color_id=color.id,
         quantity=5,
     )
 
