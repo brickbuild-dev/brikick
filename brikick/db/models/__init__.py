@@ -12,6 +12,11 @@ from db.models.inventory import Lot
 from db.models.cart import Cart, CartItem, CartStore
 from db.models.checkout import CheckoutApproval, CheckoutDraft, UserAddress
 from db.models.orders import Order, OrderApproval, OrderItem, OrderStatusHistory
+from db.models.shipping_fairness import (
+    ShippingCostBenchmark,
+    ShippingFairnessConfig,
+    ShippingFairnessFlag,
+)
 from db.models.rating import (
     Badge,
     RatingFactor,
@@ -67,6 +72,9 @@ __all__ = [
     "OrderApproval",
     "OrderItem",
     "OrderStatusHistory",
+    "ShippingCostBenchmark",
+    "ShippingFairnessConfig",
+    "ShippingFairnessFlag",
     "UserIssue",
     "UserPenalty",
     "UserPenaltyConfig",

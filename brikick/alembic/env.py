@@ -16,6 +16,7 @@ from db.models import inventory  # noqa: F401
 from db.models import orders  # noqa: F401
 from db.models import penalties  # noqa: F401
 from db.models import rating  # noqa: F401
+from db.models import shipping_fairness  # noqa: F401
 from db.models import stores  # noqa: F401
 from db.models import users  # noqa: F401
 
