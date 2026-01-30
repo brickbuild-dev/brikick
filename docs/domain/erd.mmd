@@ -1,0 +1,211 @@
+erDiagram
+  USERS ||--o{ USER_ROLES : has
+  ROLES ||--o{ USER_ROLES : assigns
+
+  USERS ||--o| SELLERS : is
+  SELLERS ||--|| STORES : owns
+
+  CATALOG_ITEMS ||--o{ CATALOG_ITEM_ALIASES : has
+  CATALOG_ITEMS ||--o{ LISTINGS : listed_as
+
+  STORES ||--o{ INVENTORY_ITEMS : holds
+  INVENTORY_ITEMS }o--|| CATALOG_ITEMS : refers_to
+  INVENTORY_ITEMS }o--|| COLORS : in_color
+
+  LISTINGS ||--o{ LISTING_LINES : contains
+  LISTING_LINES }o--|| CATALOG_ITEMS : item
+  LISTING_LINES }o--|| COLORS : color
+
+  USERS ||--o{ CARTS : owns
+  CARTS ||--o{ CART_LINES : contains
+  CART_LINES }o--|| LISTINGS : listing
+
+  USERS ||--o{ ORDERS : places
+  STORES ||--o{ ORDERS : fulfills
+  ORDERS ||--o{ ORDER_LINES : contains
+  ORDER_LINES }o--|| LISTINGS : listing_snapshot
+
+  ORDERS ||--o{ PAYMENTS : has
+  ORDERS ||--o{ SHIPMENTS : ships_as
+
+  ORDERS ||--o{ DISPUTES : may_trigger
+  DISPUTES ||--o{ DISPUTE_EVENTS : logs
+
+  USERS ||--o{ MESSAGES : sends
+  ORDERS ||--o{ MESSAGES : about
+
+  USERS ||--o{ AUDIT_EVENTS : generates
+
+  USERS {
+    uuid id PK
+    string email UK
+    string password_hash
+    string status
+    datetime created_at
+  }
+
+  ROLES {
+    int id PK
+    string name UK
+  }
+
+  USER_ROLES {
+    uuid user_id FK
+    int role_id FK
+    datetime created_at
+  }
+
+  SELLERS {
+    uuid user_id PK,FK
+    string seller_status
+    datetime created_at
+  }
+
+  STORES {
+    uuid id PK
+    uuid seller_user_id FK
+    string name
+    string slug UK
+    string status
+    datetime created_at
+  }
+
+  CATALOG_ITEMS {
+    uuid id PK
+    string item_type  "PART/SET/MINIFIG/BOOK/GEAR/..."
+    string bk_item_no "BK canonical"
+    string bl_item_no "BrickLink id"
+    string bo_item_no "BrickOwl id nullable"
+    string name
+    datetime created_at
+  }
+
+  CATALOG_ITEM_ALIASES {
+    uuid id PK
+    uuid catalog_item_id FK
+    string source "BL/BO/RB/LDRAW"
+    string source_id
+  }
+
+  COLORS {
+    int id PK
+    int bl_color_id
+    string name
+    string hex
+  }
+
+  INVENTORY_ITEMS {
+    uuid id PK
+    uuid store_id FK
+    uuid catalog_item_id FK
+    int color_id FK
+    string condition "NEW/USED"
+    int qty_on_hand
+    int qty_reserved
+    datetime updated_at
+  }
+
+  LISTINGS {
+    uuid id PK
+    uuid store_id FK
+    string status "DRAFT/ACTIVE/PAUSED/SOLDOUT"
+    string currency
+    datetime created_at
+  }
+
+  LISTING_LINES {
+    uuid id PK
+    uuid listing_id FK
+    uuid catalog_item_id FK
+    int color_id FK
+    string condition
+    int qty
+    decimal unit_price
+  }
+
+  CARTS {
+    uuid id PK
+    uuid user_id FK
+    string status
+    datetime updated_at
+  }
+
+  CART_LINES {
+    uuid id PK
+    uuid cart_id FK
+    uuid listing_id FK
+    int qty
+  }
+
+  ORDERS {
+    uuid id PK
+    uuid buyer_user_id FK
+    uuid store_id FK
+    string status "PENDING/PAID/SHIPPED/DELIVERED/CANCELLED"
+    string currency
+    decimal total_amount
+    datetime created_at
+  }
+
+  ORDER_LINES {
+    uuid id PK
+    uuid order_id FK
+    uuid listing_id FK
+    string snapshot_title
+    int qty
+    decimal unit_price
+  }
+
+  PAYMENTS {
+    uuid id PK
+    uuid order_id FK
+    string provider
+    string status
+    string provider_ref
+    datetime created_at
+  }
+
+  SHIPMENTS {
+    uuid id PK
+    uuid order_id FK
+    string carrier
+    string tracking_code
+    string status
+    datetime created_at
+  }
+
+  DISPUTES {
+    uuid id PK
+    uuid order_id FK
+    uuid opened_by_user_id FK
+    string reason
+    string status
+    datetime created_at
+  }
+
+  DISPUTE_EVENTS {
+    uuid id PK
+    uuid dispute_id FK
+    uuid actor_user_id FK
+    string event_type
+    string payload_json
+    datetime created_at
+  }
+
+  MESSAGES {
+    uuid id PK
+    uuid order_id FK
+    uuid sender_user_id FK
+    string body
+    datetime created_at
+  }
+
+  AUDIT_EVENTS {
+    uuid id PK
+    uuid actor_user_id FK
+    string action
+    string entity_type
+    uuid entity_id
+    string metadata_json
+    datetime created_at
+  }
