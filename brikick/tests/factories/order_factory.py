@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from faker import Faker
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models.orders import Order, OrderItem
+from tests.factories.user_factory import UserFactory
 
 faker = Faker()
 
@@ -15,15 +17,26 @@ class OrderFactory:
     async def create(
         db: AsyncSession,
         *,
-        buyer_id: int,
+        buyer_id: int | None = None,
         store_id: int,
         status: str = "PENDING",
         items_total: Decimal | None = None,
         shipping_cost: Decimal | None = None,
+        shipped_within_hours: int | None = None,
+        **kwargs,
     ) -> Order:
+        if buyer_id is None:
+            buyer = await UserFactory.create(db)
+            buyer_id = buyer.id
+
         items_total = items_total or Decimal("10.00")
         shipping_cost = shipping_cost or Decimal("3.00")
         grand_total = items_total + shipping_cost
+
+        created_at = kwargs.pop("created_at", datetime.now(timezone.utc))
+        shipped_at = kwargs.pop("shipped_at", None)
+        if shipped_within_hours is not None:
+            shipped_at = created_at + timedelta(hours=shipped_within_hours)
 
         order = Order(
             order_number=f"BK-2026-{faker.unique.random_int(min=10000, max=99999)}",
@@ -36,9 +49,13 @@ class OrderFactory:
             tax_amount=Decimal("0"),
             grand_total=grand_total,
             tracking_type="NO_TRACKING",
+            created_at=created_at,
+            shipped_at=shipped_at,
+            **kwargs,
         )
         db.add(order)
-        await db.flush()
+        await db.commit()
+        await db.refresh(order)
         return order
 
     @staticmethod
@@ -62,5 +79,6 @@ class OrderFactory:
             line_total=line_total,
         )
         db.add(item)
-        await db.flush()
+        await db.commit()
+        await db.refresh(item)
         return item
