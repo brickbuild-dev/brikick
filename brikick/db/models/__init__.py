@@ -9,6 +9,14 @@ from db.models.catalog import (
     PriceOverrideRequest,
 )
 from db.models.inventory import Lot
+from db.models.rating import (
+    Badge,
+    RatingFactor,
+    SlaConfig,
+    SlaMetrics,
+    UserBadge,
+    UserRatingMetrics,
+)
 from db.models.stores import (
     Store,
     StoreApiAccess,
@@ -35,6 +43,12 @@ __all__ = [
     "Color",
     "ItemType",
     "Lot",
+    "Badge",
+    "RatingFactor",
+    "SlaConfig",
+    "SlaMetrics",
+    "UserBadge",
+    "UserRatingMetrics",
     "Permission",
     "PriceGuide",
     "PriceOverrideRequest",
