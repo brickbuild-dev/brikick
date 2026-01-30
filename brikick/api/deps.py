@@ -1,9 +1,10 @@
 from collections.abc import AsyncGenerator
 
-from fastapi import Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.session import get_session
+from db.models.users import User
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -20,3 +21,16 @@ async def get_current_user_id(
             detail="Missing X-User-Id header.",
         )
     return x_user_id
+
+
+async def get_current_user(
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    user = await db.get(User, user_id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found.",
+        )
+    return user

@@ -8,11 +8,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.deps import get_current_user_id, get_db
+from api.deps import get_current_user, get_db
 from db.models.cart import Cart, CartItem, CartStore
 from db.models.catalog import CatalogItem
 from db.models.inventory import Lot
 from db.models.stores import Store
+from db.models.users import User
 
 cart_router = APIRouter(prefix="/cart", tags=["cart"])
 
@@ -176,18 +177,18 @@ async def _build_cart_response(db: AsyncSession, cart: Cart | None) -> dict:
 @cart_router.get("")
 async def get_cart(
     db: AsyncSession = Depends(get_db),
-    user_id: int = Depends(get_current_user_id),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
-    cart = await _get_cart_by_user(db, user_id)
+    cart = await _get_cart_by_user(db, current_user.id)
     return await _build_cart_response(db, cart)
 
 
 @cart_router.get("/count")
 async def get_cart_count(
     db: AsyncSession = Depends(get_db),
-    user_id: int = Depends(get_current_user_id),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
-    cart = await _get_cart_by_user(db, user_id)
+    cart = await _get_cart_by_user(db, current_user.id)
     if cart is None:
         return {"total_items": 0, "total_lots": 0}
 
@@ -209,7 +210,7 @@ async def get_cart_count(
 async def add_to_cart(
     payload: CartAddItemRequest,
     db: AsyncSession = Depends(get_db),
-    user_id: int = Depends(get_current_user_id),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
     lot = await db.get(Lot, payload.lot_id)
     if not lot:
@@ -234,7 +235,7 @@ async def add_to_cart(
             detail="Store is not active.",
         )
 
-    cart = await _get_or_create_cart(db, user_id)
+    cart = await _get_or_create_cart(db, current_user.id)
     cart_store = await _get_or_create_cart_store(db, cart.id, store.id)
 
     item_stmt = select(CartItem).where(
@@ -275,9 +276,9 @@ async def update_cart_item(
     item_id: int,
     payload: CartUpdateItemRequest,
     db: AsyncSession = Depends(get_db),
-    user_id: int = Depends(get_current_user_id),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
-    cart = await _get_cart_by_user(db, user_id)
+    cart = await _get_cart_by_user(db, current_user.id)
     if cart is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cart not found.")
 
@@ -319,9 +320,9 @@ async def update_cart_item(
 async def delete_cart_item(
     item_id: int,
     db: AsyncSession = Depends(get_db),
-    user_id: int = Depends(get_current_user_id),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
-    cart = await _get_cart_by_user(db, user_id)
+    cart = await _get_cart_by_user(db, current_user.id)
     if cart is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cart not found.")
 
@@ -347,9 +348,9 @@ async def delete_cart_item(
 async def delete_cart_store(
     store_id: int,
     db: AsyncSession = Depends(get_db),
-    user_id: int = Depends(get_current_user_id),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
-    cart = await _get_cart_by_user(db, user_id)
+    cart = await _get_cart_by_user(db, current_user.id)
     if cart is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cart not found.")
 

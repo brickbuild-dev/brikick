@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.deps import get_current_user_id, get_db
+from api.deps import get_current_user, get_db
 from db.models.cart import Cart, CartItem, CartStore
 from db.models.checkout import CheckoutApproval, CheckoutDraft, UserAddress
 from db.models.inventory import Lot
@@ -224,9 +224,9 @@ def _serialize_shipping_method(method: StoreShippingMethod) -> dict:
 async def prepare_checkout(
     payload: CheckoutPrepareRequest,
     db: AsyncSession = Depends(get_db),
-    user_id: int = Depends(get_current_user_id),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
-    cart_store = await _get_cart_store_for_user(db, user_id, payload.store_id)
+    cart_store = await _get_cart_store_for_user(db, current_user.id, payload.store_id)
     if cart_store is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cart store not found.")
 
@@ -244,7 +244,7 @@ async def prepare_checkout(
             detail="Cart store is empty.",
         )
 
-    user = await db.get(User, user_id)
+    user = await db.get(User, current_user.id)
     currency_id = store.currency_id or (user.preferred_currency_id if user else None)
     if currency_id is None:
         raise HTTPException(
@@ -265,7 +265,7 @@ async def prepare_checkout(
         select(CheckoutDraft)
         .where(
             CheckoutDraft.cart_store_id == cart_store.id,
-            CheckoutDraft.user_id == user_id,
+            CheckoutDraft.user_id == current_user.id,
             CheckoutDraft.status.in_(["DRAFT", "PENDING_SHIPPING", "PENDING_PAYMENT"]),
         )
         .order_by(CheckoutDraft.updated_at.desc())
@@ -289,7 +289,7 @@ async def prepare_checkout(
     if draft is None:
         draft = CheckoutDraft(
             cart_store_id=cart_store.id,
-            user_id=user_id,
+            user_id=current_user.id,
             store_id=store.id,
             payment_currency_id=currency_id,
             items_total=items_total,
@@ -324,9 +324,9 @@ async def prepare_checkout(
 async def get_shipping_methods(
     draft_id: int,
     db: AsyncSession = Depends(get_db),
-    user_id: int = Depends(get_current_user_id),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
-    draft = await _get_draft_for_user(db, user_id, draft_id)
+    draft = await _get_draft_for_user(db, current_user.id, draft_id)
     if draft is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Checkout draft not found.")
 
@@ -339,12 +339,12 @@ async def update_shipping(
     draft_id: int,
     payload: CheckoutShippingRequest,
     db: AsyncSession = Depends(get_db),
-    user_id: int = Depends(get_current_user_id),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
     if payload.shipping_method_id is None:
         return _shipping_required_response()
 
-    draft = await _get_draft_for_user(db, user_id, draft_id)
+    draft = await _get_draft_for_user(db, current_user.id, draft_id)
     if draft is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Checkout draft not found.")
 
@@ -361,7 +361,7 @@ async def update_shipping(
     address = None
     if payload.address_id is not None:
         address = await db.get(UserAddress, payload.address_id)
-        if not address or address.user_id != user_id:
+        if not address or address.user_id != current_user.id:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Address not found.")
 
     if not _is_address_complete(address):
@@ -399,12 +399,12 @@ async def update_payment(
     draft_id: int,
     payload: CheckoutPaymentRequest,
     db: AsyncSession = Depends(get_db),
-    user_id: int = Depends(get_current_user_id),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
     if payload.payment_method_id is None:
         return _payment_required_response()
 
-    draft = await _get_draft_for_user(db, user_id, draft_id)
+    draft = await _get_draft_for_user(db, current_user.id, draft_id)
     if draft is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Checkout draft not found.")
 
@@ -431,9 +431,9 @@ async def update_payment(
 async def submit_checkout(
     draft_id: int,
     db: AsyncSession = Depends(get_db),
-    user_id: int = Depends(get_current_user_id),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
-    draft = await _get_draft_for_user(db, user_id, draft_id)
+    draft = await _get_draft_for_user(db, current_user.id, draft_id)
     if draft is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Checkout draft not found.")
 
@@ -484,7 +484,7 @@ async def submit_checkout(
                 detail="Lot stock changed.",
             )
 
-    penalty = await get_current_penalty(db, user_id)
+    penalty = await get_current_penalty(db, current_user.id)
     if penalty and (
         penalty.penalty_type in {"BAN", "SUSPENSION"}
         or (penalty.restrictions or {}).get("can_buy") is False
@@ -495,7 +495,7 @@ async def submit_checkout(
     if store.require_approval_for_risky_buyers:
         rating_stmt = (
             select(UserRatingMetrics)
-            .where(UserRatingMetrics.user_id == user_id)
+            .where(UserRatingMetrics.user_id == current_user.id)
             .order_by(UserRatingMetrics.calculated_at.desc())
             .limit(1)
         )
@@ -521,7 +521,7 @@ async def submit_checkout(
     if approval_required:
         approval = CheckoutApproval(
             checkout_draft_id=draft.id,
-            user_id=user_id,
+            user_id=current_user.id,
             store_id=store.id,
         )
         db.add(approval)

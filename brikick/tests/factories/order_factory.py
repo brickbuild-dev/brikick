@@ -1,0 +1,66 @@
+from __future__ import annotations
+
+from decimal import Decimal
+
+from faker import Faker
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from db.models.orders import Order, OrderItem
+
+faker = Faker()
+
+
+class OrderFactory:
+    @staticmethod
+    async def create(
+        db: AsyncSession,
+        *,
+        buyer_id: int,
+        store_id: int,
+        status: str = "PENDING",
+        items_total: Decimal | None = None,
+        shipping_cost: Decimal | None = None,
+    ) -> Order:
+        items_total = items_total or Decimal("10.00")
+        shipping_cost = shipping_cost or Decimal("3.00")
+        grand_total = items_total + shipping_cost
+
+        order = Order(
+            order_number=f"BK-2026-{faker.unique.random_int(min=10000, max=99999)}",
+            buyer_id=buyer_id,
+            store_id=store_id,
+            status=status,
+            items_total=items_total,
+            shipping_cost=shipping_cost,
+            insurance_cost=Decimal("0"),
+            tax_amount=Decimal("0"),
+            grand_total=grand_total,
+            tracking_type="NO_TRACKING",
+        )
+        db.add(order)
+        await db.flush()
+        return order
+
+    @staticmethod
+    async def add_item(
+        db: AsyncSession,
+        *,
+        order_id: int,
+        lot_id: int,
+        quantity: int = 1,
+        unit_price: Decimal | None = None,
+    ) -> OrderItem:
+        unit_price = unit_price or Decimal("10.0000")
+        line_total = unit_price * quantity
+        item = OrderItem(
+            order_id=order_id,
+            lot_id=lot_id,
+            item_snapshot=None,
+            quantity=quantity,
+            unit_price=unit_price,
+            sale_price=None,
+            line_total=line_total,
+        )
+        db.add(item)
+        await db.flush()
+        return item
