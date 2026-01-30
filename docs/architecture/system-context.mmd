@@ -1,0 +1,16 @@
+flowchart LR
+  user[User (Buyer/Seller/Admin)] -->|Web| web[Next.js Web App]
+  web -->|HTTPS JSON| api[Brikick API (FastAPI)]
+  api --> db[(Postgres)]
+  api --> cache[(Redis - cache/rate limit/sessions)]
+  api --> obj[(Object Storage - Images/Files)]
+  api --> queue[(Queue - async jobs)]
+
+  api --> bl[BrickLink data inputs]
+  api --> bo[BrickOwl data inputs]
+  api --> rb[Rebrickable/LDRAW data inputs]
+
+  admin[Ops/Admin Tools] -->|Web| web
+  worker[Worker(s)] --> queue
+  worker --> db
+  worker --> obj
