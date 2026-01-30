@@ -1,0 +1,97 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: brikick-api
+    command: >
+      uvicorn api.main:app --host 0.0.0.0 --port 8000
+    environment:
+      BRK_PROJECT_NAME: Brikick
+      BRK_API_V1_PREFIX: /api/v1
+      BRK_POSTGRES_HOST: postgres
+      BRK_POSTGRES_PORT: "5432"
+      BRK_POSTGRES_DB: brikick
+      BRK_POSTGRES_USER: brikick
+      BRK_POSTGRES_PASSWORD: brikick
+      BRK_REDIS_URL: redis://redis:6379/0
+      BRK_MINIO_ENDPOINT: http://minio:9000
+      BRK_MINIO_ACCESS_KEY: minio
+      BRK_MINIO_SECRET_KEY: minio123
+      BRK_JWT_SECRET_KEY: change-me
+    depends_on:
+      - postgres
+      - redis
+      - minio
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: brikick-worker
+    command: >
+      celery -A workers.celery_app:celery_app worker --loglevel=info
+    environment:
+      BRK_PROJECT_NAME: Brikick
+      BRK_API_V1_PREFIX: /api/v1
+      BRK_POSTGRES_HOST: postgres
+      BRK_POSTGRES_PORT: "5432"
+      BRK_POSTGRES_DB: brikick
+      BRK_POSTGRES_USER: brikick
+      BRK_POSTGRES_PASSWORD: brikick
+      BRK_REDIS_URL: redis://redis:6379/0
+      BRK_MINIO_ENDPOINT: http://minio:9000
+      BRK_MINIO_ACCESS_KEY: minio
+      BRK_MINIO_SECRET_KEY: minio123
+      BRK_JWT_SECRET_KEY: change-me
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - .:/app
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: brikick-postgres
+    environment:
+      POSTGRES_DB: brikick
+      POSTGRES_USER: brikick
+      POSTGRES_PASSWORD: brikick
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: brikick-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: brikick-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  minio_data:
