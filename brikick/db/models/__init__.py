@@ -9,6 +9,7 @@ from db.models.catalog import (
     PriceOverrideRequest,
 )
 from db.models.inventory import Lot
+from db.models.cart import Cart, CartItem, CartStore
 from db.models.rating import (
     Badge,
     RatingFactor,
@@ -54,6 +55,9 @@ __all__ = [
     "SlaMetrics",
     "UserBadge",
     "UserRatingMetrics",
+    "Cart",
+    "CartItem",
+    "CartStore",
     "UserIssue",
     "UserPenalty",
     "UserPenaltyConfig",
