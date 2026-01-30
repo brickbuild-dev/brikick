@@ -11,6 +11,7 @@ from core.config import settings
 from db.base import Base
 from db.models import catalog  # noqa: F401
 from db.models import cart  # noqa: F401
+from db.models import checkout  # noqa: F401
 from db.models import inventory  # noqa: F401
 from db.models import penalties  # noqa: F401
 from db.models import rating  # noqa: F401

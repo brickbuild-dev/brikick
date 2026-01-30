@@ -10,6 +10,7 @@ from db.models.catalog import (
 )
 from db.models.inventory import Lot
 from db.models.cart import Cart, CartItem, CartStore
+from db.models.checkout import CheckoutDraft, OrderApproval, UserAddress
 from db.models.rating import (
     Badge,
     RatingFactor,
@@ -58,6 +59,9 @@ __all__ = [
     "Cart",
     "CartItem",
     "CartStore",
+    "CheckoutDraft",
+    "OrderApproval",
+    "UserAddress",
     "UserIssue",
     "UserPenalty",
     "UserPenaltyConfig",
