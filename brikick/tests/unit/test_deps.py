@@ -7,7 +7,7 @@ import api.deps as deps
 @pytest.mark.asyncio
 async def test_get_current_user_id_missing_header():
     with pytest.raises(HTTPException) as exc:
-        await deps.get_current_user_id()
+        await deps.get_current_user_id(x_user_id=None)
     assert exc.value.status_code == 401
 
 
