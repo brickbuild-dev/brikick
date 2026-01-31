@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "brikick"
+version = "0.1.0"
+description = "Brikick LEGO marketplace backend"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  "sqlalchemy[asyncio]",
+  "asyncpg",
+  "alembic",
+  "pydantic-settings",
+  "celery[redis]",
+  "python-jose[cryptography]",
+  "passlib[bcrypt]",
+  "email-validator",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest>=7.4.0",
+  "pytest-asyncio>=0.21.0",
+  "pytest-cov>=4.1.0",
+  "httpx>=0.24.0",
+  "factory-boy>=3.3.0",
+  "faker>=19.0.0",
+  "aiosqlite>=0.19.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+filterwarnings = [
+  "ignore:'crypt' is deprecated.*:DeprecationWarning:passlib.*",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["api*", "core*", "db*", "services*", "workers*"]
