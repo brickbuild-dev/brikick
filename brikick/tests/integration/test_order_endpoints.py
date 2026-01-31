@@ -27,3 +27,16 @@ class TestOrderEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert any(entry["id"] == order.id for entry in data["orders"])
+
+    @pytest.mark.asyncio
+    async def test_orders_requires_auth(self, client: AsyncClient):
+        response = await client.get("/api/v1/orders")
+        assert response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_orders_user_not_found(self, client: AsyncClient):
+        response = await client.get(
+            "/api/v1/orders",
+            headers={"X-User-Id": "999999"},
+        )
+        assert response.status_code == 401

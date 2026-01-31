@@ -18,6 +18,7 @@ class StoreFactory:
     ) -> Store:
         status = kwargs.pop("status", "ACTIVE")
         min_buy_amount = kwargs.pop("min_buy_amount", Decimal("5.00"))
+        currency_id = kwargs.pop("currency_id", 2)
         store_id = kwargs.pop("id", fake.unique.random_int(min=1, max=10_000_000))
         store = Store(
             id=store_id,
@@ -25,7 +26,7 @@ class StoreFactory:
             name=name or fake.company(),
             slug=fake.slug(),
             country_code="PT",
-            currency_id=2,
+            currency_id=currency_id,
             status=status,
             min_buy_amount=min_buy_amount,
             **kwargs,
