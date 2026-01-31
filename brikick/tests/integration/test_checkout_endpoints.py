@@ -5,7 +5,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models.cart import Cart, CartItem, CartStore
-from db.models.checkout import CheckoutApproval, UserAddress
+from db.models.checkout import CheckoutApproval, CheckoutDraft, UserAddress
 from db.models.penalties import UserPenalty
 from db.models.rating import UserRatingMetrics
 from db.models.stores import StorePaymentMethod, StoreShippingMethod
@@ -150,6 +150,37 @@ class TestCheckoutEndpoints:
             json={"store_id": store.id},
         )
         assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_prepare_checkout_reuses_draft(
+        self,
+        authenticated_client: AsyncClient,
+        db_session: AsyncSession,
+        test_user,
+    ):
+        seller = await UserFactory.create(db_session, roles=["seller"])
+        store = await StoreFactory.create(db_session, user_id=seller.id)
+        item = await CatalogItemFactory.create(db_session)
+        lot = await LotFactory.create(db_session, store_id=store.id, catalog_item_id=item.id)
+
+        await authenticated_client.post(
+            "/api/v1/cart/add",
+            json={"lot_id": lot.id, "quantity": 1},
+        )
+
+        first_response = await authenticated_client.post(
+            "/api/v1/checkout/prepare",
+            json={"store_id": store.id},
+        )
+        first_id = first_response.json()["draft"]["id"]
+
+        second_response = await authenticated_client.post(
+            "/api/v1/checkout/prepare",
+            json={"store_id": store.id},
+        )
+        second_id = second_response.json()["draft"]["id"]
+
+        assert first_id == second_id
 
     @pytest.mark.asyncio
     async def test_checkout_no_hidden_fees(
@@ -359,6 +390,160 @@ class TestCheckoutEndpoints:
         assert response.json()["error_code"] == "ADDRESS_REQUIRED"
 
     @pytest.mark.asyncio
+    async def test_update_shipping_address_not_found(
+        self,
+        authenticated_client: AsyncClient,
+        db_session: AsyncSession,
+        test_user,
+    ):
+        seller = await UserFactory.create(db_session, roles=["seller"])
+        store = await StoreFactory.create(db_session, user_id=seller.id)
+        item = await CatalogItemFactory.create(db_session)
+        lot = await LotFactory.create(db_session, store_id=store.id, catalog_item_id=item.id)
+        shipping = StoreShippingMethod(
+            store_id=store.id,
+            name="Standard",
+            cost_type="FIXED",
+            base_cost=Decimal("5.00"),
+            tracking_type="FULL_TRACKING",
+            is_active=True,
+        )
+        db_session.add(shipping)
+        await db_session.commit()
+
+        await authenticated_client.post(
+            "/api/v1/cart/add",
+            json={"lot_id": lot.id, "quantity": 1},
+        )
+        response = await authenticated_client.post(
+            "/api/v1/checkout/prepare",
+            json={"store_id": store.id},
+        )
+        draft_id = response.json()["draft"]["id"]
+
+        response = await authenticated_client.put(
+            f"/api/v1/checkout/{draft_id}/shipping",
+            json={"shipping_method_id": shipping.id, "address_id": 999999},
+        )
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_update_shipping_address_wrong_user(
+        self,
+        authenticated_client: AsyncClient,
+        db_session: AsyncSession,
+        test_user,
+    ):
+        other_user = await UserFactory.create(db_session)
+        seller = await UserFactory.create(db_session, roles=["seller"])
+        store = await StoreFactory.create(db_session, user_id=seller.id)
+        item = await CatalogItemFactory.create(db_session)
+        lot = await LotFactory.create(db_session, store_id=store.id, catalog_item_id=item.id)
+        shipping = StoreShippingMethod(
+            store_id=store.id,
+            name="Standard",
+            cost_type="FIXED",
+            base_cost=Decimal("5.00"),
+            tracking_type="FULL_TRACKING",
+            is_active=True,
+        )
+        address = UserAddress(
+            user_id=other_user.id,
+            first_name="Other",
+            last_name="User",
+            address_line1="Rua 1",
+            address_line2=None,
+            city="Porto",
+            state_name="Porto",
+            postal_code="4000-000",
+            country_code="PT",
+            phone="+351999999999",
+            is_default=True,
+        )
+        db_session.add_all([shipping, address])
+        await db_session.commit()
+
+        await authenticated_client.post(
+            "/api/v1/cart/add",
+            json={"lot_id": lot.id, "quantity": 1},
+        )
+        response = await authenticated_client.post(
+            "/api/v1/checkout/prepare",
+            json={"store_id": store.id},
+        )
+        draft_id = response.json()["draft"]["id"]
+
+        response = await authenticated_client.put(
+            f"/api/v1/checkout/{draft_id}/shipping",
+            json={"shipping_method_id": shipping.id, "address_id": address.id},
+        )
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_update_shipping_cart_store_empty(
+        self,
+        authenticated_client: AsyncClient,
+        db_session: AsyncSession,
+        test_user,
+    ):
+        seller = await UserFactory.create(db_session, roles=["seller"])
+        store = await StoreFactory.create(db_session, user_id=seller.id)
+        item = await CatalogItemFactory.create(db_session)
+        lot = await LotFactory.create(db_session, store_id=store.id, catalog_item_id=item.id)
+        cart = Cart(user_id=test_user.id)
+        db_session.add(cart)
+        await db_session.flush()
+        cart_store = CartStore(cart_id=cart.id, store_id=store.id)
+        db_session.add(cart_store)
+        await db_session.flush()
+        cart_item = CartItem(
+            cart_store_id=cart_store.id,
+            lot_id=lot.id,
+            quantity=1,
+            unit_price_snapshot=lot.unit_price,
+            sale_price_snapshot=None,
+        )
+        db_session.add(cart_item)
+        shipping = StoreShippingMethod(
+            store_id=store.id,
+            name="Standard",
+            cost_type="FIXED",
+            base_cost=Decimal("5.00"),
+            tracking_type="FULL_TRACKING",
+            is_active=True,
+        )
+        address = UserAddress(
+            user_id=test_user.id,
+            first_name="Test",
+            last_name="Buyer",
+            address_line1="Rua 1",
+            address_line2=None,
+            city="Porto",
+            state_name="Porto",
+            postal_code="4000-000",
+            country_code="PT",
+            phone="+351999999999",
+            is_default=True,
+        )
+        db_session.add_all([shipping, address])
+        await db_session.commit()
+
+        response = await authenticated_client.post(
+            "/api/v1/checkout/prepare",
+            json={"store_id": store.id},
+        )
+        draft_id = response.json()["draft"]["id"]
+
+        await db_session.delete(cart_item)
+        await db_session.commit()
+
+        response = await authenticated_client.put(
+            f"/api/v1/checkout/{draft_id}/shipping",
+            json={"shipping_method_id": shipping.id, "address_id": address.id},
+        )
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
     async def test_update_shipping_requires_method(
         self,
         authenticated_client: AsyncClient,
@@ -564,6 +749,17 @@ class TestCheckoutEndpoints:
         assert response.json()["error_code"] == "PAYMENT_REQUIRED"
 
     @pytest.mark.asyncio
+    async def test_update_payment_draft_not_found(
+        self,
+        authenticated_client: AsyncClient,
+    ):
+        response = await authenticated_client.put(
+            "/api/v1/checkout/999999/payment",
+            json={"payment_method_id": 1},
+        )
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
     async def test_update_payment_method_not_found(
         self,
         authenticated_client: AsyncClient,
@@ -683,6 +879,78 @@ class TestCheckoutEndpoints:
         )
         assert response.status_code == 422
         assert response.json()["error_code"] == "PAYMENT_REQUIRED"
+
+    @pytest.mark.asyncio
+    async def test_submit_draft_not_found(
+        self,
+        authenticated_client: AsyncClient,
+    ):
+        response = await authenticated_client.post("/api/v1/checkout/999999/submit")
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_submit_address_incomplete(
+        self,
+        authenticated_client: AsyncClient,
+        db_session: AsyncSession,
+        test_user,
+    ):
+        seller = await UserFactory.create(db_session, roles=["seller"])
+        store = await StoreFactory.create(db_session, user_id=seller.id)
+        item = await CatalogItemFactory.create(db_session)
+        lot = await LotFactory.create(db_session, store_id=store.id, catalog_item_id=item.id)
+        shipping = StoreShippingMethod(
+            store_id=store.id,
+            name="Standard",
+            cost_type="FIXED",
+            base_cost=Decimal("5.00"),
+            tracking_type="FULL_TRACKING",
+            is_active=True,
+        )
+        payment = StorePaymentMethod(
+            store_id=store.id,
+            method_type="CARD",
+            name="Card",
+            is_on_site=True,
+            is_active=True,
+        )
+        incomplete_address = UserAddress(
+            user_id=test_user.id,
+            first_name="Test",
+            last_name="Buyer",
+            address_line1="Rua 1",
+            address_line2=None,
+            city="Porto",
+            state_name="Porto",
+            postal_code="4000-000",
+            country_code="PT",
+            phone="",
+            is_default=True,
+        )
+        db_session.add_all([shipping, payment, incomplete_address])
+        await db_session.commit()
+
+        await authenticated_client.post(
+            "/api/v1/cart/add",
+            json={"lot_id": lot.id, "quantity": 1},
+        )
+        response = await authenticated_client.post(
+            "/api/v1/checkout/prepare",
+            json={"store_id": store.id},
+        )
+        draft_id = response.json()["draft"]["id"]
+
+        draft = await db_session.get(CheckoutDraft, draft_id)
+        draft.shipping_method_id = shipping.id
+        draft.shipping_address_id = incomplete_address.id
+        draft.payment_method_id = payment.id
+        await db_session.commit()
+
+        response = await authenticated_client.post(
+            f"/api/v1/checkout/{draft_id}/submit"
+        )
+        assert response.status_code == 422
+        assert response.json()["error_code"] == "ADDRESS_REQUIRED"
 
     @pytest.mark.asyncio
     async def test_submit_cart_store_not_found(

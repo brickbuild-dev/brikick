@@ -156,6 +156,66 @@ async def test_cart_multiple_stores(authenticated_client, db_session, test_selle
 
 
 @pytest.mark.asyncio
+async def test_add_same_lot_twice_increments(authenticated_client, db_session, test_seller):
+    catalog_item = await CatalogItemFactory.create(db_session)
+    lot = await LotFactory.create(
+        db_session,
+        store_id=test_seller.store.id,
+        catalog_item_id=catalog_item.id,
+        quantity=5,
+    )
+
+    await authenticated_client.post(
+        "/api/v1/cart/add",
+        json={"lot_id": lot.id, "quantity": 1},
+    )
+    response = await authenticated_client.post(
+        "/api/v1/cart/add",
+        json={"lot_id": lot.id, "quantity": 1},
+    )
+
+    assert response.status_code == 200
+    item = response.json()["stores"][0]["items"][0]
+    assert item["quantity"] == 2
+
+
+@pytest.mark.asyncio
+async def test_add_same_lot_exceeds_stock(authenticated_client, db_session, test_seller):
+    catalog_item = await CatalogItemFactory.create(db_session)
+    lot = await LotFactory.create(
+        db_session,
+        store_id=test_seller.store.id,
+        catalog_item_id=catalog_item.id,
+        quantity=1,
+    )
+
+    await authenticated_client.post(
+        "/api/v1/cart/add",
+        json={"lot_id": lot.id, "quantity": 1},
+    )
+    response = await authenticated_client.post(
+        "/api/v1/cart/add",
+        json={"lot_id": lot.id, "quantity": 1},
+    )
+    assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_get_cart_with_empty_cart(authenticated_client, db_session, test_user):
+    from db.models.cart import Cart
+
+    cart = Cart(user_id=test_user.id)
+    db_session.add(cart)
+    await db_session.commit()
+
+    response = await authenticated_client.get("/api/v1/cart")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["cart_id"] == cart.id
+    assert data["stores"] == []
+
+
+@pytest.mark.asyncio
 async def test_update_cart_item_quantity(authenticated_client, db_session, test_seller):
     catalog_item = await CatalogItemFactory.create(db_session)
     lot = await LotFactory.create(
@@ -250,6 +310,15 @@ async def test_update_cart_item_not_found(authenticated_client, db_session, test
 
 
 @pytest.mark.asyncio
+async def test_update_cart_item_cart_not_found(authenticated_client):
+    response = await authenticated_client.put(
+        "/api/v1/cart/items/1",
+        json={"quantity": 1},
+    )
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_delete_cart_item(authenticated_client, db_session, test_seller):
     catalog_item = await CatalogItemFactory.create(db_session)
     lot = await LotFactory.create(
@@ -294,6 +363,12 @@ async def test_delete_cart_item_not_found(authenticated_client, db_session, test
 
 
 @pytest.mark.asyncio
+async def test_delete_cart_item_cart_not_found(authenticated_client):
+    response = await authenticated_client.delete("/api/v1/cart/items/1")
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_delete_cart_store(authenticated_client, db_session, test_seller):
     catalog_item = await CatalogItemFactory.create(db_session)
     lot = await LotFactory.create(
@@ -335,6 +410,21 @@ async def test_delete_cart_store_not_found(authenticated_client, db_session, tes
         "/api/v1/cart/stores/999999",
     )
     assert delete_response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_cart_store_cart_not_found(authenticated_client):
+    response = await authenticated_client.delete("/api/v1/cart/stores/1")
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_cart_count_no_cart(authenticated_client):
+    response = await authenticated_client.get("/api/v1/cart/count")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total_items"] == 0
+    assert data["total_lots"] == 0
 
 
 @pytest.mark.asyncio
