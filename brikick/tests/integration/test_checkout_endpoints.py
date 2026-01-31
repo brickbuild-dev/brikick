@@ -4,8 +4,11 @@ from datetime import datetime, timedelta, timezone
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models.checkout import UserAddress
-from db.models.stores import StoreShippingMethod
+from db.models.checkout import CheckoutApproval, UserAddress
+from db.models.penalties import UserPenalty
+from db.models.rating import UserRatingMetrics
+from db.models.stores import StorePaymentMethod, StoreShippingMethod
+from sqlalchemy import select
 from tests.factories.catalog_factory import CatalogItemFactory
 from tests.factories.lot_factory import LotFactory
 from tests.factories.order_factory import OrderFactory
@@ -180,3 +183,326 @@ class TestCheckoutEndpoints:
         await db_session.commit()
         await db_session.refresh(order)
         assert order.shipping_proof_deadline is not None
+
+    @pytest.mark.asyncio
+    async def test_get_shipping_methods(
+        self,
+        authenticated_client: AsyncClient,
+        db_session: AsyncSession,
+        test_user,
+    ):
+        seller = await UserFactory.create(db_session, roles=["seller"])
+        store = await StoreFactory.create(db_session, user_id=seller.id)
+        item = await CatalogItemFactory.create(db_session)
+        lot = await LotFactory.create(db_session, store_id=store.id, catalog_item_id=item.id)
+        shipping = StoreShippingMethod(
+            store_id=store.id,
+            name="Standard",
+            cost_type="FIXED",
+            base_cost=Decimal("4.00"),
+            tracking_type="FULL_TRACKING",
+            is_active=True,
+        )
+        db_session.add(shipping)
+        await db_session.commit()
+
+        await authenticated_client.post(
+            "/api/v1/cart/add",
+            json={"lot_id": lot.id, "quantity": 1},
+        )
+        response = await authenticated_client.post(
+            "/api/v1/checkout/prepare",
+            json={"store_id": store.id},
+        )
+        draft_id = response.json()["draft"]["id"]
+
+        response = await authenticated_client.get(
+            f"/api/v1/checkout/{draft_id}/shipping-methods"
+        )
+        assert response.status_code == 200
+        assert any(method["id"] == shipping.id for method in response.json()["shipping_methods"])
+
+    @pytest.mark.asyncio
+    async def test_update_shipping_requires_address(
+        self,
+        authenticated_client: AsyncClient,
+        db_session: AsyncSession,
+        test_user,
+    ):
+        seller = await UserFactory.create(db_session, roles=["seller"])
+        store = await StoreFactory.create(db_session, user_id=seller.id)
+        item = await CatalogItemFactory.create(db_session)
+        lot = await LotFactory.create(db_session, store_id=store.id, catalog_item_id=item.id)
+        shipping = StoreShippingMethod(
+            store_id=store.id,
+            name="Standard",
+            cost_type="FIXED",
+            base_cost=Decimal("5.00"),
+            tracking_type="FULL_TRACKING",
+            is_active=True,
+        )
+        db_session.add(shipping)
+        await db_session.commit()
+
+        await authenticated_client.post(
+            "/api/v1/cart/add",
+            json={"lot_id": lot.id, "quantity": 1},
+        )
+        response = await authenticated_client.post(
+            "/api/v1/checkout/prepare",
+            json={"store_id": store.id},
+        )
+        draft_id = response.json()["draft"]["id"]
+
+        response = await authenticated_client.put(
+            f"/api/v1/checkout/{draft_id}/shipping",
+            json={"shipping_method_id": shipping.id},
+        )
+        assert response.status_code == 422
+        assert response.json()["error_code"] == "ADDRESS_REQUIRED"
+
+    @pytest.mark.asyncio
+    async def test_update_payment_requires_method(
+        self,
+        authenticated_client: AsyncClient,
+        db_session: AsyncSession,
+        test_user,
+    ):
+        seller = await UserFactory.create(db_session, roles=["seller"])
+        store = await StoreFactory.create(db_session, user_id=seller.id)
+        item = await CatalogItemFactory.create(db_session)
+        lot = await LotFactory.create(db_session, store_id=store.id, catalog_item_id=item.id)
+
+        await authenticated_client.post(
+            "/api/v1/cart/add",
+            json={"lot_id": lot.id, "quantity": 1},
+        )
+        response = await authenticated_client.post(
+            "/api/v1/checkout/prepare",
+            json={"store_id": store.id},
+        )
+        draft_id = response.json()["draft"]["id"]
+
+        response = await authenticated_client.put(
+            f"/api/v1/checkout/{draft_id}/payment",
+            json={"payment_method_id": None},
+        )
+        assert response.status_code == 422
+        assert response.json()["error_code"] == "PAYMENT_REQUIRED"
+
+    @pytest.mark.asyncio
+    async def test_submit_requires_payment(
+        self,
+        authenticated_client: AsyncClient,
+        db_session: AsyncSession,
+        test_user,
+    ):
+        seller = await UserFactory.create(db_session, roles=["seller"])
+        store = await StoreFactory.create(db_session, user_id=seller.id)
+        item = await CatalogItemFactory.create(db_session)
+        lot = await LotFactory.create(db_session, store_id=store.id, catalog_item_id=item.id)
+        shipping = StoreShippingMethod(
+            store_id=store.id,
+            name="Standard",
+            cost_type="FIXED",
+            base_cost=Decimal("5.00"),
+            tracking_type="FULL_TRACKING",
+            is_active=True,
+        )
+        address = UserAddress(
+            user_id=test_user.id,
+            first_name="Test",
+            last_name="Buyer",
+            address_line1="Rua 1",
+            address_line2=None,
+            city="Porto",
+            state_name="Porto",
+            postal_code="4000-000",
+            country_code="PT",
+            phone="+351999999999",
+            is_default=True,
+        )
+        db_session.add_all([shipping, address])
+        await db_session.commit()
+
+        await authenticated_client.post(
+            "/api/v1/cart/add",
+            json={"lot_id": lot.id, "quantity": 1},
+        )
+        response = await authenticated_client.post(
+            "/api/v1/checkout/prepare",
+            json={"store_id": store.id},
+        )
+        draft_id = response.json()["draft"]["id"]
+
+        await authenticated_client.put(
+            f"/api/v1/checkout/{draft_id}/shipping",
+            json={"shipping_method_id": shipping.id, "address_id": address.id},
+        )
+
+        response = await authenticated_client.post(
+            f"/api/v1/checkout/{draft_id}/submit"
+        )
+        assert response.status_code == 422
+        assert response.json()["error_code"] == "PAYMENT_REQUIRED"
+
+    @pytest.mark.asyncio
+    async def test_submit_restricted_buyer(
+        self,
+        authenticated_client: AsyncClient,
+        db_session: AsyncSession,
+        test_user,
+    ):
+        seller = await UserFactory.create(db_session, roles=["seller"])
+        store = await StoreFactory.create(db_session, user_id=seller.id)
+        item = await CatalogItemFactory.create(db_session)
+        lot = await LotFactory.create(db_session, store_id=store.id, catalog_item_id=item.id)
+        shipping = StoreShippingMethod(
+            store_id=store.id,
+            name="Standard",
+            cost_type="FIXED",
+            base_cost=Decimal("5.00"),
+            tracking_type="FULL_TRACKING",
+            is_active=True,
+        )
+        payment = StorePaymentMethod(
+            store_id=store.id,
+            method_type="CARD",
+            name="Card",
+            is_on_site=True,
+            is_active=True,
+        )
+        address = UserAddress(
+            user_id=test_user.id,
+            first_name="Test",
+            last_name="Buyer",
+            address_line1="Rua 1",
+            address_line2=None,
+            city="Porto",
+            state_name="Porto",
+            postal_code="4000-000",
+            country_code="PT",
+            phone="+351999999999",
+            is_default=True,
+        )
+        penalty = UserPenalty(
+            user_id=test_user.id,
+            penalty_type="SUSPENSION",
+            reason_code="TEST",
+            starts_at=datetime.now(timezone.utc) - timedelta(days=1),
+            ends_at=datetime.now(timezone.utc) + timedelta(days=1),
+            restrictions={"can_buy": False},
+            created_at=datetime.now(timezone.utc),
+        )
+        db_session.add_all([shipping, payment, address, penalty])
+        await db_session.commit()
+
+        await authenticated_client.post(
+            "/api/v1/cart/add",
+            json={"lot_id": lot.id, "quantity": 1},
+        )
+        response = await authenticated_client.post(
+            "/api/v1/checkout/prepare",
+            json={"store_id": store.id},
+        )
+        draft_id = response.json()["draft"]["id"]
+
+        await authenticated_client.put(
+            f"/api/v1/checkout/{draft_id}/shipping",
+            json={"shipping_method_id": shipping.id, "address_id": address.id},
+        )
+        await authenticated_client.put(
+            f"/api/v1/checkout/{draft_id}/payment",
+            json={"payment_method_id": payment.id},
+        )
+
+        response = await authenticated_client.post(
+            f"/api/v1/checkout/{draft_id}/submit"
+        )
+        assert response.status_code == 403
+        assert response.json()["error_code"] == "BUYER_RESTRICTED"
+
+    @pytest.mark.asyncio
+    async def test_submit_requires_approval_for_risky_buyer(
+        self,
+        authenticated_client: AsyncClient,
+        db_session: AsyncSession,
+        test_user,
+    ):
+        seller = await UserFactory.create(db_session, roles=["seller"])
+        store = await StoreFactory.create(
+            db_session,
+            user_id=seller.id,
+            require_approval_for_risky_buyers=True,
+            risk_threshold_score=80.0,
+        )
+        item = await CatalogItemFactory.create(db_session)
+        lot = await LotFactory.create(db_session, store_id=store.id, catalog_item_id=item.id)
+        shipping = StoreShippingMethod(
+            store_id=store.id,
+            name="Standard",
+            cost_type="FIXED",
+            base_cost=Decimal("5.00"),
+            tracking_type="FULL_TRACKING",
+            is_active=True,
+        )
+        payment = StorePaymentMethod(
+            store_id=store.id,
+            method_type="CARD",
+            name="Card",
+            is_on_site=True,
+            is_active=True,
+        )
+        address = UserAddress(
+            user_id=test_user.id,
+            first_name="Test",
+            last_name="Buyer",
+            address_line1="Rua 1",
+            address_line2=None,
+            city="Porto",
+            state_name="Porto",
+            postal_code="4000-000",
+            country_code="PT",
+            phone="+351999999999",
+            is_default=True,
+        )
+        rating = UserRatingMetrics(
+            user_id=test_user.id,
+            period_start=datetime.now(timezone.utc).date(),
+            period_end=datetime.now(timezone.utc).date(),
+            overall_score=Decimal("50.00"),
+            score_tier="AVERAGE",
+            calculated_at=datetime.now(timezone.utc),
+        )
+        db_session.add_all([shipping, payment, address, rating])
+        await db_session.commit()
+
+        await authenticated_client.post(
+            "/api/v1/cart/add",
+            json={"lot_id": lot.id, "quantity": 1},
+        )
+        response = await authenticated_client.post(
+            "/api/v1/checkout/prepare",
+            json={"store_id": store.id},
+        )
+        draft_id = response.json()["draft"]["id"]
+
+        await authenticated_client.put(
+            f"/api/v1/checkout/{draft_id}/shipping",
+            json={"shipping_method_id": shipping.id, "address_id": address.id},
+        )
+        await authenticated_client.put(
+            f"/api/v1/checkout/{draft_id}/payment",
+            json={"payment_method_id": payment.id},
+        )
+
+        response = await authenticated_client.post(
+            f"/api/v1/checkout/{draft_id}/submit"
+        )
+        assert response.status_code == 200
+        assert response.json()["approval_required"] is True
+
+        approval_result = await db_session.execute(
+            select(CheckoutApproval).where(CheckoutApproval.user_id == test_user.id)
+        )
+        assert approval_result.scalar_one_or_none() is not None
