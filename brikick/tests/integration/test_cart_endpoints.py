@@ -1,4 +1,5 @@
 import pytest
+from decimal import Decimal
 
 from tests.factories.catalog_factory import CatalogItemFactory
 from tests.factories.lot_factory import LotFactory
@@ -96,6 +97,62 @@ async def test_add_to_cart_unavailable_lot(authenticated_client, db_session, tes
         json={"lot_id": lot.id, "quantity": 1},
     )
     assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_add_to_cart_with_sale_price(authenticated_client, db_session, test_seller):
+    catalog_item = await CatalogItemFactory.create(db_session)
+    lot = await LotFactory.create(
+        db_session,
+        store_id=test_seller.store.id,
+        catalog_item_id=catalog_item.id,
+        quantity=5,
+        unit_price=Decimal("10.0000"),
+    )
+    lot.sale_percentage = 10
+    await db_session.commit()
+
+    response = await authenticated_client.post(
+        "/api/v1/cart/add",
+        json={"lot_id": lot.id, "quantity": 1},
+    )
+    assert response.status_code == 200
+    item = response.json()["stores"][0]["items"][0]
+    assert item["sale_price_snapshot"] == 9.0
+
+
+@pytest.mark.asyncio
+async def test_cart_multiple_stores(authenticated_client, db_session, test_seller):
+    other_seller = await UserFactory.create(db_session, roles=["seller"])
+    other_store = await StoreFactory.create(db_session, user_id=other_seller.id)
+    item_one = await CatalogItemFactory.create(db_session)
+    item_two = await CatalogItemFactory.create(db_session)
+    lot_one = await LotFactory.create(
+        db_session,
+        store_id=test_seller.store.id,
+        catalog_item_id=item_one.id,
+        quantity=5,
+    )
+    lot_two = await LotFactory.create(
+        db_session,
+        store_id=other_store.id,
+        catalog_item_id=item_two.id,
+        quantity=5,
+    )
+
+    await authenticated_client.post(
+        "/api/v1/cart/add",
+        json={"lot_id": lot_one.id, "quantity": 1},
+    )
+    await authenticated_client.post(
+        "/api/v1/cart/add",
+        json={"lot_id": lot_two.id, "quantity": 1},
+    )
+
+    response = await authenticated_client.get("/api/v1/cart")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["stores"]) == 2
 
 
 @pytest.mark.asyncio

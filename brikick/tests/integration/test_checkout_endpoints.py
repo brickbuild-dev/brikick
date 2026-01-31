@@ -142,6 +142,9 @@ class TestCheckoutEndpoints:
             json={"lot_id": lot.id, "quantity": 1},
         )
 
+        test_user.preferred_currency_id = None
+        await db_session.commit()
+
         response = await authenticated_client.post(
             "/api/v1/checkout/prepare",
             json={"store_id": store.id},
@@ -957,6 +960,78 @@ class TestCheckoutEndpoints:
             f"/api/v1/checkout/{draft_id}/submit"
         )
         assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_update_payment_method_wrong_store(
+        self,
+        authenticated_client: AsyncClient,
+        db_session: AsyncSession,
+        test_user,
+    ):
+        seller = await UserFactory.create(db_session, roles=["seller"])
+        store = await StoreFactory.create(db_session, user_id=seller.id)
+        other_seller = await UserFactory.create(db_session, roles=["seller"])
+        other_store = await StoreFactory.create(db_session, user_id=other_seller.id)
+        item = await CatalogItemFactory.create(db_session)
+        lot = await LotFactory.create(db_session, store_id=store.id, catalog_item_id=item.id)
+        payment = StorePaymentMethod(
+            store_id=other_store.id,
+            method_type="CARD",
+            name="Other",
+            is_on_site=True,
+            is_active=True,
+        )
+        db_session.add(payment)
+        await db_session.commit()
+
+        await authenticated_client.post(
+            "/api/v1/cart/add",
+            json={"lot_id": lot.id, "quantity": 1},
+        )
+        response = await authenticated_client.post(
+            "/api/v1/checkout/prepare",
+            json={"store_id": store.id},
+        )
+        draft_id = response.json()["draft"]["id"]
+
+        response = await authenticated_client.put(
+            f"/api/v1/checkout/{draft_id}/payment",
+            json={"payment_method_id": payment.id},
+        )
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_prepare_checkout_empty_shipping_methods(
+        self,
+        authenticated_client: AsyncClient,
+        db_session: AsyncSession,
+        test_user,
+    ):
+        seller = await UserFactory.create(db_session, roles=["seller"])
+        store = await StoreFactory.create(db_session, user_id=seller.id)
+        item = await CatalogItemFactory.create(db_session)
+        lot = await LotFactory.create(db_session, store_id=store.id, catalog_item_id=item.id)
+
+        await authenticated_client.post(
+            "/api/v1/cart/add",
+            json={"lot_id": lot.id, "quantity": 1},
+        )
+        response = await authenticated_client.post(
+            "/api/v1/checkout/prepare",
+            json={"store_id": store.id},
+        )
+        assert response.status_code == 200
+        assert response.json()["shipping_methods"] == []
+
+    @pytest.mark.asyncio
+    async def test_get_shipping_methods_not_found(
+        self,
+        authenticated_client: AsyncClient,
+        db_session: AsyncSession,
+        test_user,
+    ):
+        response = await authenticated_client.get("/api/v1/checkout/999999/shipping-methods")
+        assert response.status_code == 404
 
     @pytest.mark.asyncio
     async def test_submit_restricted_buyer(
