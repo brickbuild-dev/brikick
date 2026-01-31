@@ -17,6 +17,7 @@ dependencies = [
   "celery[redis]",
   "python-jose[cryptography]",
   "passlib[bcrypt]",
+  "email-validator",
 ]
 
 [project.optional-dependencies]
