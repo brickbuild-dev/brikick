@@ -29,7 +29,8 @@ class TestShippingProofDeadlines:
         await db_session.commit()
         await db_session.refresh(order)
 
-        assert order.shipping_proof_deadline == shipped_at + timedelta(hours=48)
+        expected_deadline = (shipped_at + timedelta(hours=48)).replace(tzinfo=None)
+        assert order.shipping_proof_deadline == expected_deadline
 
     @pytest.mark.asyncio
     async def test_enforce_deadline_marks_disputed_and_creates_issue(self, db_session):
