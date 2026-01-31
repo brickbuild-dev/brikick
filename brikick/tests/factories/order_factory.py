@@ -23,6 +23,7 @@ class OrderFactory:
         items_total: Decimal | None = None,
         shipping_cost: Decimal | None = None,
         shipped_within_hours: int | None = None,
+        tracking_type: str = "NO_TRACKING",
         **kwargs,
     ) -> Order:
         if buyer_id is None:
@@ -39,6 +40,7 @@ class OrderFactory:
             shipped_at = created_at + timedelta(hours=shipped_within_hours)
 
         order_id = kwargs.pop("id", faker.unique.random_int(min=1, max=10_000_000))
+        tracking_type_value = kwargs.pop("tracking_type", tracking_type)
         order = Order(
             id=order_id,
             order_number=f"BK-2026-{faker.unique.random_int(min=10000, max=99999)}",
@@ -50,7 +52,7 @@ class OrderFactory:
             insurance_cost=Decimal("0"),
             tax_amount=Decimal("0"),
             grand_total=grand_total,
-            tracking_type="NO_TRACKING",
+            tracking_type=tracking_type_value,
             created_at=created_at,
             shipped_at=shipped_at,
             **kwargs,
