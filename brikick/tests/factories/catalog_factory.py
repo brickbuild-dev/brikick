@@ -14,7 +14,9 @@ class CatalogItemFactory:
         item_type: str = "P",
         **kwargs,
     ) -> CatalogItem:
+        item_id = kwargs.pop("id", fake.unique.random_int(min=1, max=10_000_000))
         item = CatalogItem(
+            id=item_id,
             item_no=item_no or fake.bothify("####"),
             item_type=item_type,
             name=fake.sentence(nb_words=3),
@@ -37,7 +39,9 @@ class PriceGuideFactory:
         avg_price: Decimal = Decimal("1.00"),
         **kwargs,
     ) -> PriceGuide:
+        guide_id = kwargs.pop("id", fake.unique.random_int(min=1, max=10_000_000))
         price_guide = PriceGuide(
+            id=guide_id,
             catalog_item_id=catalog_item_id,
             color_id=color_id,
             condition=condition,

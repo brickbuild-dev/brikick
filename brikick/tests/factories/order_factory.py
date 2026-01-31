@@ -38,7 +38,9 @@ class OrderFactory:
         if shipped_within_hours is not None:
             shipped_at = created_at + timedelta(hours=shipped_within_hours)
 
+        order_id = kwargs.pop("id", faker.unique.random_int(min=1, max=10_000_000))
         order = Order(
+            id=order_id,
             order_number=f"BK-2026-{faker.unique.random_int(min=10000, max=99999)}",
             buyer_id=buyer_id,
             store_id=store_id,
@@ -69,7 +71,9 @@ class OrderFactory:
     ) -> OrderItem:
         unit_price = unit_price or Decimal("10.0000")
         line_total = unit_price * quantity
+        item_id = faker.unique.random_int(min=1, max=10_000_000)
         item = OrderItem(
+            id=item_id,
             order_id=order_id,
             lot_id=lot_id,
             item_snapshot=None,

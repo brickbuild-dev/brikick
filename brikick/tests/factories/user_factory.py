@@ -18,7 +18,9 @@ class UserFactory:
         roles: list[str] | None = None,
         **kwargs,
     ) -> User:
+        user_id = kwargs.pop("id", fake.unique.random_int(min=1, max=10_000_000))
         user = User(
+            id=user_id,
             email=email or fake.email(),
             username=username or fake.user_name()[:50],
             password_hash=get_password_hash(password),

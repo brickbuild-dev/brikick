@@ -15,7 +15,14 @@ class LotFactory:
         quantity: int = 10,
         **kwargs,
     ) -> Lot:
+        lot_id = kwargs.pop("id", None)
+        if lot_id is None:
+            from faker import Faker
+
+            fake = Faker()
+            lot_id = fake.unique.random_int(min=1, max=10_000_000)
         lot = Lot(
+            id=lot_id,
             store_id=store_id,
             catalog_item_id=catalog_item_id,
             color_id=kwargs.get("color_id", 0),

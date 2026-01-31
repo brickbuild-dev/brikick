@@ -16,7 +16,9 @@ class StoreFactory:
         name: str = None,
         **kwargs,
     ) -> Store:
+        store_id = kwargs.pop("id", fake.unique.random_int(min=1, max=10_000_000))
         store = Store(
+            id=store_id,
             user_id=user_id,
             name=name or fake.company(),
             slug=fake.slug(),
