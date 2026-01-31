@@ -7,6 +7,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, BYTEA, INET, JSONB
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.pool import StaticPool
+from sqlalchemy import BigInteger
 
 import db.models  # noqa: F401
 from api.deps import get_current_user, get_db
@@ -33,6 +34,11 @@ def _compile_inet_sqlite(type_, compiler, **kw) -> str:
 @compiles(BYTEA, "sqlite")
 def _compile_bytea_sqlite(type_, compiler, **kw) -> str:
     return "BLOB"
+
+
+@compiles(BigInteger, "sqlite")
+def _compile_bigint_sqlite(type_, compiler, **kw) -> str:
+    return "INTEGER"
 
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
