@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.rating import (
@@ -121,4 +121,4 @@ class TestBadgeAward:
 
         trusted_seller = next(b for b in badges if b.code == "TRUSTED_SELLER")
         assert trusted_seller.valid_until is not None
-        assert trusted_seller.valid_until > datetime.utcnow()
+        assert trusted_seller.valid_until > datetime.now(timezone.utc)

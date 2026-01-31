@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,7 +33,7 @@ class TestPenaltyEvaluation:
                 user_id=user.id,
                 issue_type="DISPUTE_LOST",
                 severity=2,
-                expires_at=datetime.utcnow() + timedelta(days=365),
+                expires_at=datetime.now(timezone.utc) + timedelta(days=365),
             )
             db_session.add(issue)
         await db_session.commit()
@@ -57,7 +57,7 @@ class TestPenaltyEvaluation:
                 user_id=user.id,
                 issue_type="DISPUTE_LOST",
                 severity=2,
-                expires_at=datetime.utcnow() + timedelta(days=365),
+                expires_at=datetime.now(timezone.utc) + timedelta(days=365),
             )
             db_session.add(issue)
         await db_session.commit()
@@ -83,7 +83,7 @@ class TestPenaltyEvaluation:
                 user_id=user.id,
                 issue_type="DISPUTE_LOST",
                 severity=2,
-                expires_at=datetime.utcnow() + timedelta(days=365),
+                expires_at=datetime.now(timezone.utc) + timedelta(days=365),
             )
             db_session.add(issue)
         await db_session.commit()
@@ -109,7 +109,7 @@ class TestPenaltyEvaluation:
                 user_id=user.id,
                 issue_type="DISPUTE_LOST",
                 severity=2,
-                expires_at=datetime.utcnow() + timedelta(days=365),
+                expires_at=datetime.now(timezone.utc) + timedelta(days=365),
             )
             db_session.add(issue)
         await db_session.commit()
@@ -135,8 +135,8 @@ class TestPenaltyEvaluation:
                 user_id=user.id,
                 issue_type="DISPUTE_LOST",
                 severity=2,
-                created_at=datetime.utcnow() - timedelta(days=400),
-                expires_at=datetime.utcnow() - timedelta(days=35),
+                created_at=datetime.now(timezone.utc) - timedelta(days=400),
+                expires_at=datetime.now(timezone.utc) - timedelta(days=35),
             )
             db_session.add(issue)
         await db_session.commit()

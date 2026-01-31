@@ -45,7 +45,7 @@ def _to_float_or_none(value: Decimal | None) -> float | None:
 
 def _shipping_required_response() -> JSONResponse:
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         content={
             "error_code": "SHIPPING_REQUIRED",
             "message": "Um metodo de envio deve ser selecionado",
@@ -68,7 +68,7 @@ def _buyer_restricted_response(penalty: UserPenalty) -> JSONResponse:
 
 def _payment_required_response() -> JSONResponse:
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         content={
             "error_code": "PAYMENT_REQUIRED",
             "message": "Um metodo de pagamento deve ser selecionado",
@@ -79,7 +79,7 @@ def _payment_required_response() -> JSONResponse:
 
 def _address_required_response() -> JSONResponse:
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         content={
             "error_code": "ADDRESS_REQUIRED",
             "message": "Endereco de envio incompleto",

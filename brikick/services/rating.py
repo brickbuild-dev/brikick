@@ -127,7 +127,7 @@ async def evaluate_badges(
     shipping_sla_score: float | None = None,
 ) -> list[AwardedBadge]:
     awarded: list[AwardedBadge] = []
-    now = datetime.utcnow()
+    now = datetime.now(datetime.UTC)
     monthly_valid_until = now + timedelta(days=30)
 
     if overall_score is not None and overall_score >= 85:

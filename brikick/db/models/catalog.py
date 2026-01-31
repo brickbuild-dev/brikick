@@ -149,7 +149,11 @@ class PriceOverrideRequest(Base):
     id: Mapped[int] = mapped_column(sa.BigInteger, primary_key=True)
     lot_id: Mapped[int | None] = mapped_column(
         sa.BigInteger,
-        sa.ForeignKey("lots.id"),
+        sa.ForeignKey(
+            "lots.id",
+            name="fk_price_override_requests_lot_id",
+            use_alter=True,
+        ),
     )
     store_id: Mapped[int] = mapped_column(
         sa.BigInteger,
