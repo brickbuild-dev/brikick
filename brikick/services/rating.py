@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -127,7 +127,7 @@ async def evaluate_badges(
     shipping_sla_score: float | None = None,
 ) -> list[AwardedBadge]:
     awarded: list[AwardedBadge] = []
-    now = datetime.now(datetime.UTC)
+    now = datetime.now(timezone.utc)
     monthly_valid_until = now + timedelta(days=30)
 
     if overall_score is not None and overall_score >= 85:
